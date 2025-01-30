@@ -12,17 +12,24 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def load_deepseek_model():
-    """Load model with version-pinned commit"""
     model_name = "deepseek-ai/DeepSeek-R1"
+    
+    # Disable automatic quantization
     tokenizer = AutoTokenizer.from_pretrained(
         model_name,
         trust_remote_code=True,
-        revision="5dde110d1a9ee857b90a6710b7138f9130ce6fa0"  # Critical commit
+        revision="main",  # Use latest revision
+        device_map="auto",
+        quantization_config=None  # Explicitly disable quantization
     )
+    
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         trust_remote_code=True,
-        revision="5dde110d1a9ee857b90a6710b7138f9130ce6fa0"
+        revision="main",
+        device_map="auto",
+        torch_dtype=torch.float16,  # Force FP16 precision
+        quantization_config=None
     )
     return model, tokenizer
 
