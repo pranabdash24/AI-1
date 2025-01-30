@@ -3,5 +3,5 @@ pandas==2.2.2
 plotly==5.22.0
 torch==2.4.1
 transformers==4.46.3
+accelerate==0.30.1
 safetensors==0.4.5
-accelerate==0.30.1  # Critical for quantization support
