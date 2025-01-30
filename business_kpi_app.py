@@ -1,112 +1,119 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+import google.generativeai as genai
+import re
+import numpy as np
+from datetime import datetime
 
-# Custom CSS styling
-st.markdown("""
-<style>
-.main-header { font-size: 2.5rem; color: #4CAF50; text-align: center; margin-bottom: 2rem; }
-.data-section { background: #f8f9fa; padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-.stButton>button { background-color: #4CAF50; color: white; border-radius: 8px; }
-</style>
-""", unsafe_allow_html=True)
+# Configure Google Gemini API
+GOOGLE_API_KEY = ""  # Replace with your actual API key
+genai.configure(api_key=GOOGLE_API_KEY)
 
-def load_deepseek_model():
-    """Load model with forced FP16 precision and disabled quantization"""
-    model_name = "deepseek-ai/DeepSeek-R1"
+def send_data_to_gemini(df, industry, goal):
+    df_subset = df.head(100)
+    data_json = df_subset.to_json(orient="records", date_format='iso')
+
+    prompt = f"""
+    You are a business intelligence assistant analyzing {industry} data for {goal}. 
+    Generate Python code using Plotly Express wrapped in ```python blocks. Follow these steps:
+
+    1. Identify major KPIs from this data:
+    {data_json}
     
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_name,
-        trust_remote_code=True,
-        revision="main",
-        device_map="auto",
-        use_quantization=False  # Explicitly disable tokenizer quantization
-    )
+    2. For each KPI:
+    - Create a visualization using Plotly Express
+    - Use st.plotly_chart(fig) to display it
+    - Add titles/axis labels
+    - Use Streamlit layout components
     
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        trust_remote_code=True,
-        revision="main",
-        device_map="auto",
-        torch_dtype=torch.float16,
-        use_quantization=False,  # Disable model quantization
-        quantization_config=None  # Force no quantization
-    )
-    return model, tokenizer
+    3. Provide a 3-sentence insight after each chart
 
-def analyze_data(df, industry, goal):
-    """Auto-identify KPIs based on data and user inputs"""
-    numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-    kpis = {
-        "Retail": ["Monthly Sales", "Customer Retention"],
-        "E-commerce": ["Conversion Rate", "Cart Abandonment"],
-        "Manufacturing": ["Production Yield", "Defect Rate"]
-    }.get(industry, []) + numeric_cols
-    return list(set(kpis))
+    Format response EXACTLY like:
+    ```
+    # KPI 1 Visualization
+    fig1 = px.line(df, x='...', y='...')
+    st.plotly_chart(fig1)
+    ```
+    Insight: [Your insight here]
+
+    ```
+    # KPI 2 Visualization 
+    fig2 = px.bar(df, x='...', y='...')
+    st.plotly_chart(fig2)
+    ```
+    Insight: [Your insight here]
+
+    5. At last a proper summary of the bussniss, SWOT, and future recommendations.
+    """
+    
+
+    model = genai.GenerativeModel("gemini-1.5-pro-latest")
+    response = model.generate_content(prompt)
+    return response.text
 
 def main():
-    st.markdown("<h1 class='main-header'>Business Intelligence Assistant</h1>", unsafe_allow_html=True)
-    
-    # Initialize session state
-    if 'model' not in st.session_state:
-        with st.spinner("Loading AI engine..."):
-            st.session_state.model, st.session_state.tokenizer = load_deepseek_model()
+    st.markdown("<h1 style='text-align: center; color: #4CAF50;'>Business Intelligence Assistant</h1>", unsafe_allow_html=True)
+    st.warning("⚠️ This app executes AI-generated code. Only use with trusted data sources.")
 
-    # File upload section
     uploaded_file = st.file_uploader("Upload business data", type=["csv", "xlsx"])
-    
+
     if uploaded_file:
         try:
-            # Load data
             df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('.xlsx') else pd.read_csv(uploaded_file)
             
-            # Data preview
             with st.expander("📊 View Raw Data", expanded=True):
-                st.dataframe(df.head(), use_container_width=True)
+                st.dataframe(df.head(100), use_container_width=True)
 
-            # Business context
             st.sidebar.header("Business Context")
-            industry = st.sidebar.selectbox("Industry Sector", ["Retail", "E-commerce", "Manufacturing"])
-            goal = st.sidebar.selectbox("Primary Objective", ["Revenue Growth", "Cost Optimization", "Customer Experience"])
+            industry = st.sidebar.selectbox("Industry Sector", 
+                ["Retail", "E-commerce", "Manufacturing", "Healthcare", "Finance"])
+            goal = st.sidebar.selectbox("Primary Objective", 
+                ["Revenue Growth", "Cost Optimization", "Customer Experience", "Operational Efficiency"])
 
-            # Analysis flow
-            kpis = analyze_data(df, industry, goal)
-            
-            # Dashboard
-            st.subheader("Performance Dashboard")
-            col1, col2 = st.columns(2)
-            with col1:
-                fig = px.line(df, x=df.columns[0], y=kpis[0], title=f"{kpis[0]} Trend")
-                st.plotly_chart(fig, use_container_width=True)
-            with col2:
-                fig = px.bar(df.tail(10), x=df.columns[0], y=kpis[-1], title="Recent Performance")
-                st.plotly_chart(fig, use_container_width=True)
+            if st.button("Analyze Data & Generate Report"):
+                with st.spinner("Analyzing data with AI..."):
+                    report = send_data_to_gemini(df, industry, goal)
+                try:
+                    # Improved parsing with flexible regex
+                    code_blocks = re.findall(r'```python\n(.*?)\n```', report, re.DOTALL)
+                    insights = re.findall(r'Insight:\s*(.*?)(?=\n\s*```|$)', report, re.DOTALL)
 
-            # AI Analysis
-            if st.button("Generate Business Report"):
-                data_summary = f"""
-                Records: {len(df)}
-                Time Period: {df.iloc[:, 0].min()} to {df.iloc[:, 0].max()}
-                Key Metrics: {', '.join(kpis)}
-                """
-                
-                analysis = st.session_state.model.generate(
-                    **st.session_state.tokenizer(
-                        f"Analyze this {industry} business data focusing on {goal}:\n{data_summary}",
-                        return_tensors="pt",
-                        max_length=512,
-                        truncation=True
-                    ),
-                    max_new_tokens=500
-                )
-                
-                st.subheader("AI Business Report")
-                st.write(st.session_state.tokenizer.decode(analysis[0], skip_special_tokens=True))
+                    if not code_blocks:
+                        st.error("No code found in response. Common reasons:")
+                        st.markdown("""
+                        - API key not configured
+                        - Dataset too small/vague
+                        - Gemini content policy restrictions
+                        """)
+                        return
+
+                    exec_env = {
+                        'df': df.head(100),
+                        'st': st,
+                        'px': px,
+                        'pd': pd,
+                        'np': np,
+                        'datetime': datetime
+                    }
+
+                    for i, code in enumerate(code_blocks):
+                        with st.container():
+                            with st.expander(f"View KPI {i+1} Code"):
+                                st.code(code, language='python')
+                            
+                            try:
+                                exec(code, exec_env)
+                                if i < len(insights):
+                                    st.success(f"**Insight {i+1}:** {insights[i].strip()}")
+                            except Exception as e:
+                                st.error(f"Error executing KPI {i+1}: {str(e)}")
+
+                except Exception as e:
+                    st.error(f"Processing Error: {str(e)}")
 
         except Exception as e:
-            st.error(f"🚨 Error processing data: {str(e)}")
+            st.error(f"Data Error: {str(e)}")
 
 if __name__ == "__main__":
     main()
