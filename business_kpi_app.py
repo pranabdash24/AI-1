@@ -27,7 +27,7 @@ def send_data_to_gemini(df, industry, goal):
     - Add titles/axis labels
     - Use Streamlit layout components
     
-    3. Provide a 3-sentence insight after each chart
+    3. Provide a brief insight after each chart
 
     Format response EXACTLY like:
     ```
