@@ -27,19 +27,19 @@ def send_data_to_gemini(df, industry, goal):
     - Add titles/axis labels
     - Use Streamlit layout components
     
-    3. Provide a 3-sentence insight after each chart
+    3. Provide a brief sentence insight after each chart
 
     Format response EXACTLY like:
     ```
     # KPI 1 Visualization
-    fig1 = px.line(df, x='...', y='...')
+
     st.plotly_chart(fig1)
     ```
     Insight: [Your insight here]
 
     ```
     # KPI 2 Visualization 
-    fig2 = px.bar(df, x='...', y='...')
+
     st.plotly_chart(fig2)
     ```
     Insight: [Your insight here]
