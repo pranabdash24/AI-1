@@ -7,7 +7,7 @@ import numpy as np
 from datetime import datetime
 
 # Configure Google Gemini API
-GOOGLE_API_KEY = ""  # Replace with your actual API key
+GOOGLE_API_KEY = st.secrets["general"]["API_KEY"]  # Replace with your actual API key
 genai.configure(api_key=GOOGLE_API_KEY)
 
 def send_data_to_gemini(df, industry, goal):
