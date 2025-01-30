@@ -4,4 +4,4 @@ plotly==5.22.0
 torch==2.4.1
 transformers==4.46.3
 safetensors==0.4.5
-triton==3.0.0
+accelerate==0.30.1  # Critical for quantization support
