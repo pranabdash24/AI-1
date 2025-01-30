@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import torch  # <-- Missing import added here
+import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # Custom CSS styling
@@ -14,14 +14,15 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def load_deepseek_model():
-    """Load DeepSeek-R1 model with version pinning"""
+    """Load model with forced FP16 precision and disabled quantization"""
     model_name = "deepseek-ai/DeepSeek-R1"
     
     tokenizer = AutoTokenizer.from_pretrained(
         model_name,
         trust_remote_code=True,
         revision="main",
-        device_map="auto"
+        device_map="auto",
+        use_quantization=False  # Explicitly disable tokenizer quantization
     )
     
     model = AutoModelForCausalLM.from_pretrained(
@@ -29,7 +30,9 @@ def load_deepseek_model():
         trust_remote_code=True,
         revision="main",
         device_map="auto",
-        torch_dtype=torch.float16  # Now using properly imported torch
+        torch_dtype=torch.float16,
+        use_quantization=False,  # Disable model quantization
+        quantization_config=None  # Force no quantization
     )
     return model, tokenizer
 
