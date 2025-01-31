@@ -99,8 +99,9 @@ def main():
 
                     for i, code in enumerate(code_blocks):
                         with st.container():
-                            with st.expander(f"View KPI {i+1} Code"):
-                                st.code(code, language='python')
+                            # Remove or comment out the following lines to hide the code
+                            # with st.expander(f"View KPI {i+1} Code"):
+                            #     st.code(code, language='python')
                             
                             try:
                                 exec(code, exec_env)
